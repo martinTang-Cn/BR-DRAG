@@ -1,0 +1,3 @@
+round,test_accuracy,test_loss,malicious_fraction,reference_norm,benign_rho_min,benign_rho_max,benign_cos_rho_mean,client_seconds_mean,server_seconds,server_client_ratio
+0,1.02,4.605473427581787,,,,,,,,
+1,0.87,4.607935648345947,0.3,0.15559662878513336,0.7533332109451294,0.8978584408760071,0.012915779437337602,1.3721438999999989,1.4810197000000045,1.0793472171541234

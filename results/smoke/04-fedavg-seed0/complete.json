@@ -1,0 +1,7 @@
+{
+  "status": "diverged",
+  "rounds": 42,
+  "test_accuracy": 10.0,
+  "test_loss": 43055.85,
+  "failed_round": 43
+}
