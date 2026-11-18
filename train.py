@@ -15,16 +15,16 @@ import torch
 from torch.nn import functional as F
 from torch.nn.utils import parameters_to_vector
 
-from aggregation import aggregate, directions, perturb
+from aggregation import BR_DRAG_METHODS, aggregate, directions, perturb
 from data import class_balanced_pool, corrupt_labels, dirichlet_split, load_data
 from models import make_model
 
 
 DATASETS = ("emnist", "cifar10", "cifar100", "synthetic")
 METHODS = ("drag", "br-drag", "fedavg", "fedprox", "scaffold", "fedexp", "fedacg",
-           "fltrust", "rfa", "raga", "br-trust", "root-only")
+           "fltrust", "rfa", "raga", "br-trust", "root-only", *BR_DRAG_METHODS[1:])
 ATTACKS = ("none", "noise", "sign-flip", "label-flip", "min-max", "min-sum")
-ROOT_METHODS = ("br-drag", "fltrust", "br-trust", "root-only")
+ROOT_METHODS = (*BR_DRAG_METHODS, "fltrust", "br-trust", "root-only")
 METRICS = (
     "round", "test_accuracy", "test_loss", "malicious_fraction", "reference_norm",
     "benign_rho_min", "benign_rho_max", "benign_cos_rho_mean",

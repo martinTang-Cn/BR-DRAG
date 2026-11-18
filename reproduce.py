@@ -1,4 +1,4 @@
-"""Run the paper experiments and the BR-DRAG root-only comparison."""
+"""Run the paper experiments and the BR-DRAG direction and norm comparisons."""
 
 import argparse
 import csv
@@ -18,6 +18,7 @@ ROBUST = ("br-drag", "fedavg", "fltrust", "rfa", "raga")
 LABEL = dict(zip(METHODS, (
     "DRAG", "BR-DRAG", "FedAvg", "FedProx", "SCAFFOLD", "FedExP", "FedACG",
     "FLTrust", "RFA", "RAGA", "BR-DRAG (clipped cosine)", "Server root only",
+    "Root direction, BR-DRAG norm", "BR-DRAG direction, root norm",
 )))
 
 
@@ -38,7 +39,11 @@ def comparison(base, methods):
 
 def figure_cases(figure):
     if figure == "br-drag-root-only":
-        return comparison(Experiment(attack="sign-flip", attacker_ratio=0.3), ("br-drag", "root-only"))
+        base = Experiment(attack="sign-flip", attacker_ratio=0.3)
+        # Append the new cases so completed baseline runs keep their directory indices.
+        return comparison(base, ("br-drag", "root-only")) + comparison(
+            base, ("br-drag-root-direction", "br-drag-root-norm")
+        )
     if figure == "smoke":
         return [
             Case("Clean clients" if attack == "none" else "Sign flipping (60% of clients)",
@@ -150,7 +155,7 @@ def plot(figure, records, folder):
         datasets = ", ".join(dict.fromkeys(case.config.dataset.upper() for case, _ in records))
         rounds = read_series(records[0][1][0], "test_accuracy")[-1, 0]
         experiment = records[0][0].config
-        subject = "BR-DRAG vs. server root only" if figure == "br-drag-root-only" else f"Figure {figure}"
+        subject = "BR-DRAG direction and norm" if figure == "br-drag-root-only" else f"Figure {figure}"
         title = f"{subject} · {datasets} · {experiment.model.upper()}"
         if experiment.attacker_ratio:
             title += f" · {experiment.attack} ({experiment.attacker_ratio:.0%})"

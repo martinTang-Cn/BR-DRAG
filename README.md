@@ -54,11 +54,20 @@ python reproduce.py --figure 4 --plot-only --output results/paper
 
 每次运行写入 `config.json`、`split.json`、`metrics.csv` 和 `complete.json`。准确率以百分比记录，默认每 10 轮评估一次，并在第 0 轮和最后一轮评估。可用 `--eval-every 1` 逐轮评估。数值失稳会记录发生轮次，曲线截在最后一个有效测试点。批量运行会跳过已完成且配置相同的任务。中断后，可移动未完成的单次运行目录，再重跑同一命令。
 
-## BR-DRAG 与仅服务器根数据训练的对照
+## BR-DRAG 更新方向与长度的对照
 
-两组每轮都从各自当前的全局参数 θₜ 出发，在服务器持有的 3000 条干净根数据样本上运行同样的 5 步 SGD，得到参考更新 rₜ。原版 BR-DRAG 用 rₜ 修正并聚合客户端上传的更新。对照组 `root-only` 直接采用 θₜ₊₁ = θₜ + rₜ，只执行服务器 SGD。带 BatchNorm 的模型使用服务器 SGD 后的缓冲区。
+四组每轮都从各自当前的全局参数出发，在服务器的 3000 条干净根数据样本上运行 5 步 SGD，得到参考更新 $r^t$。$\Delta^t_{\mathrm{BR}}$ 表示在当前组的模型上按原版 BR-DRAG 修正并聚合客户端上传后得到的更新。下表中的范数均为 L2 范数。
 
-预设沿用图 12 的 CIFAR-10 设置，BR-DRAG 面对 30% 客户端符号翻转，并比较 β=0.1 和 β=0.5。每对实验共用种子、初始模型、根数据、根数据的批次采样顺序和测试集。`root-only` 的模型更新只依赖服务器，因此同一种子的曲线在两个 β 下相同。
+| 方法 | 应用到全局模型的更新 |
+| --- | --- |
+| `br-drag` | $\Delta^t_{\mathrm{BR}}$ |
+| `root-only` | $r^t$，只执行服务器 SGD。带 BatchNorm 的模型使用服务器 SGD 后的缓冲区 |
+| `br-drag-root-direction` | $\frac{\lVert\Delta^t_{\mathrm{BR}}\rVert_2}{\lVert r^t\rVert_2}r^t$ |
+| `br-drag-root-norm` | $\frac{\lVert r^t\rVert_2}{\lVert\Delta^t_{\mathrm{BR}}\rVert_2}\Delta^t_{\mathrm{BR}}$ |
+
+比较 `br-drag` 与 `br-drag-root-direction`，检验采用 BR-DRAG 更新长度规则时，BR-DRAG 的方向是否优于参考方向。比较 `br-drag-root-norm` 与 `root-only`，检验采用参考更新长度规则时，BR-DRAG 的方向是否仍有收益。各组在自己的模型轨迹上逐轮计算范数，匹配的是长度规则，实际步长会随各组模型演化。方向向量的范数为零时，该轮参数更新取零。
+
+预设沿用图 12 的 CIFAR-10 设置，客户端符号翻转比例为 30%，并比较 β=0.1 和 β=0.5。各组按种子共享初始模型、根数据、根数据的批次采样顺序和测试集。使用客户端更新的组也共享客户端划分、参与顺序和本地批次采样。`root-only` 的模型更新只依赖服务器，因此同一种子的曲线在两个 β 下相同。
 
 ```powershell
 # 查看计划，跳过训练
@@ -68,7 +77,7 @@ python reproduce.py --figure br-drag-root-only --seeds 0 1 2 --plan
 python reproduce.py --figure br-drag-root-only --seeds 0 1 2 --output results/root-only
 ```
 
-默认每次运行 4000 轮。准确率对照图位于 `results/root-only/br-drag-root-only/br-drag-root-only.png`，各组的 `metrics.csv` 记录测试损失和参考更新范数。轮数对齐了服务器 SGD 的步数。对比收敛速度和最终准确率，可以衡量在这组攻击条件下，纳入客户端更新对 BR-DRAG 的净影响。需要单独运行服务器对照组时，使用 `train.py --method root-only`。
+默认每次运行 4000 轮，可用 `--rounds` 覆盖。准确率对照图位于 `results/root-only/br-drag-root-only/br-drag-root-only.png`，各组的 `metrics.csv` 记录测试损失和参考更新范数。用原来的输出目录和相同运行参数重跑时，脚本会复用已完成的原版 BR-DRAG 和 `root-only` 结果，补跑新增的对照。也可以通过 `train.py --method` 单独运行表中任一方法。
 
 ## 与论文设置的对应关系
 

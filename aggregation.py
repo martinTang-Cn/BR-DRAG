@@ -4,6 +4,9 @@ import numpy as np
 import torch
 
 
+BR_DRAG_METHODS = ("br-drag", "br-drag-root-direction", "br-drag-root-norm")
+
+
 def directions(updates, reference):
     norms = torch.linalg.vector_norm(updates, dim=1)
     root_norm = torch.linalg.vector_norm(reference)
@@ -41,8 +44,20 @@ def geometric_median(updates, iterations, smoothing, tolerance=0.0):
 
 
 def aggregate(method, updates, reference=None, scale=0.5):
-    if method in ("drag", "br-drag"):
-        return divergence_correction(updates, reference, scale, method == "br-drag").mean(dim=0)
+    if method == "drag":
+        return divergence_correction(updates, reference, scale, robust=False).mean(dim=0)
+    if method in BR_DRAG_METHODS:
+        br_update = divergence_correction(updates, reference, scale, robust=True).mean(dim=0)
+        if method == "br-drag":
+            return br_update
+        if method == "br-drag-root-direction":
+            direction, length_source = reference, br_update
+        else:
+            direction, length_source = br_update, reference
+        direction_norm = torch.linalg.vector_norm(direction)
+        if direction_norm == 0:
+            return torch.zeros_like(direction)
+        return (direction / direction_norm) * torch.linalg.vector_norm(length_source)
     if method in ("fltrust", "br-trust"):
         _, root_norm, units, _, cosine = directions(updates, reference)
         scores = cosine.clamp_min(0)

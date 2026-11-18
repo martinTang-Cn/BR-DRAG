@@ -31,6 +31,24 @@ class AggregationTest(unittest.TestCase):
         torch.testing.assert_close(actual, expected)
         torch.testing.assert_close(aggregate("br-drag", updates, root), expected.mean(dim=0))
 
+    def test_br_drag_ablations_take_direction_and_norm_from_different_updates(self):
+        root = torch.tensor([3., 0.])
+        uploads = torch.tensor([[0., 200.]])
+        br_update = aggregate("br-drag", uploads, root)
+        root_direction = aggregate("br-drag-root-direction", uploads, root)
+        root_norm = aggregate("br-drag-root-norm", uploads, root)
+        torch.testing.assert_close(root_direction, torch.tensor([1., 0.]) * br_update.norm())
+        torch.testing.assert_close(root_norm, torch.tensor([1., 1.]) * (3 / np.sqrt(2)))
+
+    def test_br_drag_ablations_handle_zero_norms(self):
+        uploads = torch.tensor([[0., 2.], [0., -2.]])
+        zero = torch.zeros(2)
+        root = torch.tensor([3., 0.])
+        for method in ("br-drag-root-direction", "br-drag-root-norm"):
+            with self.subTest(method=method):
+                torch.testing.assert_close(aggregate(method, uploads, zero), zero)
+                torch.testing.assert_close(aggregate(method, uploads, root, scale=0.0), zero)
+
     def test_zero_reference_and_zero_trust(self):
         vectors = torch.tensor([[-5., 0.], [0., 0.]])
         zero = torch.zeros(2)
@@ -101,14 +119,21 @@ class ExperimentTest(unittest.TestCase):
                 self.assertEqual(config.local_steps, 5)
                 self.assertEqual(config.batch_size, 10)
 
-    def test_br_drag_root_only_pairs_share_experimental_settings(self):
+    def test_br_drag_comparison_cases_share_experimental_settings(self):
         cases = figure_cases("br-drag-root-only")
-        self.assertEqual([case.config.beta for case in cases], [0.1, 0.1, 0.5, 0.5])
-        for baseline, ablation in zip(cases[::2], cases[1::2]):
-            config = baseline.config.resolved()
-            self.assertEqual(config.method, "br-drag")
+        keys = [(case.config.beta, case.config.method) for case in cases]
+        baselines = [(beta, method) for beta in (0.1, 0.5) for method in ("br-drag", "root-only")]
+        ablations = [
+            (beta, method) for beta in (0.1, 0.5)
+            for method in ("br-drag-root-direction", "br-drag-root-norm")
+        ]
+        self.assertEqual(keys, baselines + ablations)
+        for case in cases:
+            config = Experiment(
+                method="br-drag", beta=case.config.beta, attack="sign-flip", attacker_ratio=0.3
+            ).resolved()
             self.assertEqual((config.root_size, config.root_corruption), (3000, 0.0))
-            self.assertEqual(ablation.config.resolved(), replace(config, method="root-only"))
+            self.assertEqual(case.config.resolved(), replace(config, method=case.config.method))
 
     @patch("train.perturb")
     @patch("train.aggregate")
